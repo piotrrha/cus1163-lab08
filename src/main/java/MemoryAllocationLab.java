@@ -6,7 +6,7 @@ public class MemoryAllocationLab {
     static class MemoryBlock {
         int start;
         int size;
-        String processName;  // null if free
+        String processName; 
 
         public MemoryBlock(int start, int size, String processName) {
             this.start = start;
