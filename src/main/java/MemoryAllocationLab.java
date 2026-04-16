@@ -28,58 +28,99 @@ public class MemoryAllocationLab {
     static int successfulAllocations = 0;
     static int failedAllocations = 0;
 
-    /**
-     * TODO 1, 2: Process memory requests from file
-     * <p>
-     * This method reads the input file and processes each REQUEST and RELEASE.
-     * <p>
-     * TODO 1: Read and parse the file
-     *   - Open the file using BufferedReader
-     *   - Read the first line to get total memory size
-     *   - Initialize the memory list with one large free block
-     *   - Read each subsequent line and parse it
-     *   - Call appropriate method based on REQUEST or RELEASE
-     * <p>
-     * TODO 2: Implement allocation and deallocation
-     *   - For REQUEST: implement First-Fit algorithm
-     *     * Search memory list for first free block >= requested size
-     *     * If found: split the block if necessary and mark as allocated
-     *     * If not found: increment failedAllocations
-     *   - For RELEASE: find the process's block and mark it as free
-     *   - Optionally: merge adjacent free blocks (bonus)
-     */
     public static void processRequests(String filename) {
         memory = new ArrayList<>();
 
-        // TODO 1: Read file and initialize memory
-        // Try-catch block to handle file reading
-        // Read first line for total memory size
-        // Create initial free block: new MemoryBlock(0, totalMemory, null)
-        // Read remaining lines in a loop
-        // Parse each line and call allocate() or deallocate()
+        try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
+            String line = br.readLine();
 
+            if (line == null) {
+                System.out.println("Error: Input file is empty.");
+                return;
+            }
 
-        // TODO 2: Implement these helper methods
+            totalMemory = Integer.parseInt(line.trim());
+            memory.add(new MemoryBlock(0, totalMemory, null));
 
+            while ((line = br.readLine()) != null) {
+                line = line.trim();
+
+                if (line.isEmpty()) {
+                    continue;
+                }
+
+                String[] parts = line.split("\\s+");
+
+                if (parts[0].equalsIgnoreCase("REQUEST")) {
+                    String processName = parts[1];
+                    int size = Integer.parseInt(parts[2]);
+                    allocate(processName, size);
+                } else if (parts[0].equalsIgnoreCase("RELEASE")) {
+                    String processName = parts[1];
+                    deallocate(processName);
+                } else {
+                    System.out.println("Invalid command: " + line);
+                }
+            }
+
+        } catch (IOException e) {
+            System.out.println("Error reading file: " + e.getMessage());
+        } catch (NumberFormatException e) {
+            System.out.println("Error parsing number: " + e.getMessage());
+        }
     }
 
-    /**
-     * TODO 2A: Allocate memory using First-Fit
-     */
     private static void allocate(String processName, int size) {
-        // Search through memory list
-        // Find first free block where size >= requested size
-        // If found:
-        //   - Mark block as allocated (set processName)
-        //   - If block is larger than needed, split it:
-        //     * Create new free block for remaining space
-        //     * Add it to memory list after current block
-        //   - Increment successfulAllocations
-        //   - Print success message
-        // If not found:
-        //   - Increment failedAllocations
-        //   - Print failure message
+        for (int i = 0; i < memory.size(); i++) {
+            MemoryBlock block = memory.get(i);
 
+            if (block.isFree() && block.size >= size) {
+                if (block.size == size) {
+                    block.processName = processName;
+                } else {
+                    MemoryBlock allocatedBlock = new MemoryBlock(block.start, size, processName);
+                    MemoryBlock remainingBlock = new MemoryBlock(block.start + size, block.size - size, null);
+
+                    memory.set(i, allocatedBlock);
+                    memory.add(i + 1, remainingBlock);
+                }
+
+                successfulAllocations++;
+                System.out.println("Allocated " + size + " KB to " + processName);
+                return;
+            }
+        }
+
+        failedAllocations++;
+        System.out.println("Allocation failed for " + processName + " (" + size + " KB)");
+    }
+
+    private static void deallocate(String processName) {
+        for (int i = 0; i < memory.size(); i++) {
+            MemoryBlock block = memory.get(i);
+
+            if (!block.isFree() && block.processName.equals(processName)) {
+                block.processName = null;
+                System.out.println("Released memory for " + processName);
+                mergeFreeBlocks();
+                return;
+            }
+        }
+
+        System.out.println("Process " + processName + " not found.");
+    }
+
+    private static void mergeFreeBlocks() {
+        for (int i = 0; i < memory.size() - 1; i++) {
+            MemoryBlock current = memory.get(i);
+            MemoryBlock next = memory.get(i + 1);
+
+            if (current.isFree() && next.isFree()) {
+                current.size += next.size;
+                memory.remove(i + 1);
+                i--;
+            }
+        }
     }
 
     public static void displayStatistics() {
@@ -140,9 +181,6 @@ public class MemoryAllocationLab {
         System.out.println("========================================");
     }
 
-    /**
-     * Main method (FULLY PROVIDED)
-     */
     public static void main(String[] args) {
         if (args.length < 1) {
             System.out.println("Usage: java MemoryAllocationLab <input_file>");
